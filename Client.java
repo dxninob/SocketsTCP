@@ -4,7 +4,7 @@ import java.io.PrintStream;
 import java.net.Socket;
 import java.util.Scanner;
 
-public class Cliente {
+public class Client {
 
     public static void main(String[] args) {
         String server = "127.0.0.1";
@@ -32,7 +32,6 @@ public class Cliente {
                     out.println(command_to_send);
 
                     // Read data from the server until we finish reading the document
-                    // FALTA: NO LEE MUCHAS LINEAS
                     String line = in.readLine();
                     while(!line.equals("")) {
                         System.out.println(line);

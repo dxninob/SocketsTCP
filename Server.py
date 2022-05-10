@@ -51,40 +51,17 @@ def handler_client_connection(client_connection,client_address):
     while is_connected:
         data_recevived = client_connection.recv(recv_buffer_size)
         remote_string = str(data_recevived.decode(encoding_format))
-        remote_string = re.sub('\n|\r', '', remote_string)
         print (f'Data received from: {client_address[0]}:{client_address[1]}')
-        print(remote_string, '\n')
+        print(remote_string)
+        remote_string = re.sub('\n|\r', '', remote_string)
         remote_string = remote_string.split(' ')
         method = remote_string[0]
         
         if (method in methods):
-            success, response = search_file(remote_string)
+            success, myfile = search_file(remote_string)
             if (success == 1):
-                header = 'Hola\n'
-                if (method == 'GET'):
-                    print('hola', method)
-                elif (method == 'HEAD'):
-                    print('hola', method)
-                elif (method == 'POST'):
-                    print('hola', method)
-                elif (method == 'PUT'):
-                    print('hola', method)
-                elif (method == 'DELETE'):
-                    try:
-                        os.remove(response)
-                        header = '200 OK\n'
-                    except:
-                        header = '500 Internal Server Error\n'
-                elif (method == 'CONNECT'):
-                    print('hola', method)
-                elif (method == 'OPTIONS'):
-                    print('hola', method)
-                elif (method == 'TRACE'):
-                    print('hola', method)
-                elif (method == 'PATCH'):
-                    print('hola', method)
-
-                final_response = header.encode(encoding_format)
+                final_response = select_method(method, myfile)
+                final_response = final_response.encode(encoding_format)
 
             else:
                 header = 'HTTP/1.1 404 Not Found\n'
@@ -114,15 +91,38 @@ def search_file(remote_string):
     myfile = myfile.lstrip('/')
     if(myfile == ''):
         myfile = 'index.html'
-
-    try:
-        file = open(myfile , 'rb')
-        response = file.read()
-        file.close()   
+    exists = os.path.exists(myfile)
+    if (exists):
         return 1, myfile
-
-    except Exception as e:
+    else:
         return 0, 0
+
+
+def select_method(method, myfile):
+    header = ''
+    if (method == 'GET'):
+        pass
+    elif (method == 'HEAD'):
+        pass
+    elif (method == 'POST'):
+        pass
+    elif (method == 'PUT'):
+        pass
+    elif (method == 'DELETE'):
+        try:
+            os.remove(myfile)
+            header = '200 OK\n'
+        except ValueError:
+            header = '500 Internal Server Error\n'
+    elif (method == 'CONNECT'):
+        pass
+    elif (method == 'OPTIONS'):
+        pass
+    elif (method == 'TRACE'):
+        pass
+    elif (method == 'PATCH'):
+        pass
+    return header
 
 
 if __name__ == "__main__":
