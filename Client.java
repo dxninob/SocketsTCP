@@ -3,6 +3,9 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.Socket;
 import java.util.Scanner;
+import java.io.FileOutputStream;
+import java.io.FileInputStream;
+import java.io.File;
 
 public class Client {
 
@@ -31,12 +34,16 @@ public class Client {
                 } else {
                     out.println(command_to_send);
 
+                    File fileOutput = new File("archivo2.txt");
+                    FileOutputStream output = new FileOutputStream(fileOutput);
                     // Read data from the server until we finish reading the document
                     String line = in.readLine();
                     while(!line.equals("")) {
                         System.out.println(line);
+                        output.write(line.getBytes());
                         line = in.readLine();
                     }
+                    output.close();
 
                     if (command_to_send.equals("QUIT")) {
                         break;

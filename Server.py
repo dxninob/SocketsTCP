@@ -60,16 +60,28 @@ def handler_client_connection(client_connection,client_address):
         if (method in methods):
             success, myfile = search_file(remote_string)
             if (success == 1):
-                final_response = select_method(method, myfile)
-                final_response = final_response.encode(encoding_format)
-
+                #final_response = select_method(method, myfile)
+                #final_response = final_response.encode(encoding_format)
+                if (method == 'GET'):
+                    try:
+                        header = 'HTTP/1.1 404 Not Found\n'
+                        final_response = header.encode(encoding_format)
+                        client_connection.send(final_response)
+                        f = open(myfile, 'rb')
+                        l = f.read(1024)
+                        while (l):
+                            client_connection.send(l)
+                            l = f.read(1024)
+                        f.close()
+                    except:
+                        header = '500 Internal Server Error\n'
             else:
                 header = 'HTTP/1.1 404 Not Found\n'
                 response = '<html><body>Error 404: File not found</body></html>'.encode(encoding_format)
                 final_response = header.encode(encoding_format)
                 final_response += response + '\n'.encode(encoding_format)
             
-            client_connection.sendall(final_response)
+            #client_connection.sendall(final_response)
 
         elif (method == 'QUIT'):
             response = '200 BYE\n'
@@ -99,9 +111,17 @@ def search_file(remote_string):
 
 
 def select_method(method, myfile):
-    header = ''
+    header = ''.encode()
     if (method == 'GET'):
-        pass
+        try:
+            f = open(myfile, 'rb')
+            l = f.read(1024)
+            while (l):
+                client_connection.send(l)
+                l = f.read(1024)
+            f.close()
+        except:
+            header = '500 Internal Server Error\n'
     elif (method == 'HEAD'):
         pass
     elif (method == 'POST'):
