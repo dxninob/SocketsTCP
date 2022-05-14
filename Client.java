@@ -1,11 +1,6 @@
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.net.Socket;
 import java.util.Scanner;
-import java.io.FileOutputStream;
-import java.io.FileInputStream;
-import java.io.File;
+import java.io.*;
 
 public class Client {
 
@@ -96,7 +91,20 @@ public class Client {
         }  else if (method.equals("POST")) {
     
         } else if (method.equals("PUT")) {
-            
+		    byte[] b = new byte[1024]; 
+		    File f = new File(myfile);  
+		    try {// Flujo de salida de datos  
+			    InputStream ins = new FileInputStream(f);
+			    int n = ins.read(b);
+			    while (n != -1) {// Escribe datos en la red
+				    out.println(b); // Enviar contenido del archivo
+				    n = ins.read(b);   
+				} // Cerrar la secuencia   
+			    ins.close();   
+			} catch (IOException e) {   
+				e.printStackTrace();  
+			} 
+
         } else {
             try {
             String line = in.readLine();

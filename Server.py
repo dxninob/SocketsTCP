@@ -116,7 +116,20 @@ def select_method(method, myfile, client_connection):
     elif (method == 'POST'):
         pass
     elif (method == 'PUT'):
-        pass
+        try:
+            myfile = 'test/' + myfile
+            f = open(myfile, 'wb')
+            print("Receiving file...")                
+            l = client_connection.recv(1024)
+            l_decoded = str(l.decode('utf-16'))
+            f.write(l)
+            f.close()
+            print("File received successfully.")  
+            response = '700 FUTBS\n'
+        except BaseException as e:
+            print("ERROR: " + str(e))  
+            response = '750 FUTBF\n'
+            client_connection.sendall(response.encode(constants.ENCODING_FORMAT))
     elif (method == 'DELETE'):
         try:
             os.remove(myfile)
