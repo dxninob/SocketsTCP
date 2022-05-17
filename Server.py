@@ -1,11 +1,4 @@
-# ********************************************************************************************
-    # Lab: Introduction to sockets
-    # Course: ST0255 - Telemática
-    # MultiThread TCP-SocketServer
-# ********************************************************************************************
-
 # Import libraries for networking communication and concurrency...
-
 import socket
 import threading
 import re
@@ -14,12 +7,14 @@ import os
 
 # Server address and port
 address, port = '127.0.0.1', 80
+# Encoding format and buffer size to recive
 encoding_format = "utf-8"
 recv_buffer_size = 2048
+# Methods where the file must exist in the server
 methods_file_in_server = ['GET', 'HEAD', 'DELETE']
-methods_file_in_client = ['POST', 'PUT']
-
-# Defining a socket object...
+# Methods where the file must exist in the client
+methods_file_in_client = ['POST']
+# Defining the server socket object
 server_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
 
@@ -32,63 +27,65 @@ def main():
 
 #Function to start server process...
 def server_execution():
+    # Bind the socket to a public host, and a well-known port
     server_socket.bind((address, port))
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     print ('Socket is bind to address and port...')
+    # We want to queue no more than 5 connection requests before rejecting external connections
     server_socket.listen(5)
     print('Socket is listening...', '\n')
     while True:
+        # The server socket accept a client connection
         client_connection, client_address = server_socket.accept()
+        # We will receive multiple clients at the same time
         client_thread = threading.Thread(target=handler_client_connection, args=(client_connection,client_address))
         client_thread.start()
     print('Socket is closed...')
+    # Close server socket
     server_socket.close()
 
 
 # Handler for manage incomming clients conections...
-def handler_client_connection(client_connection,client_address):
+def handler_client_connection(client_connection, client_address):
     print(f'New incomming connection is coming from: {client_address[0]}:{client_address[1]}', '\n')
     is_connected = True
+    # Read requests from the client while it is connected
     while is_connected:
+        # Read data from the client
         data_recevived = client_connection.recv(recv_buffer_size)
+        # Decode the data from bytes to the encodieng format
         remote_string = str(data_recevived.decode(encoding_format))
         print (f'Data received from: {client_address[0]}:{client_address[1]}')
         print(remote_string)
+        # Remove newline characters from the string
         remote_string = re.sub('\n|\r', '', remote_string)
+        # Separate the string into words
         remote_string = remote_string.split(' ')
         method = remote_string[0]
         
+        # Execute if the method is DELETE, GET or HEAD
         if (method in methods_file_in_server):
+            # The file must exist in te server to execute this methods
             success, myfile = search_file(remote_string)
+            # Execute if the file exists
             if (success == 1):
-                method_file_in_server(method, myfile, client_connection)                    
+                method_file_in_server(method, myfile, client_connection)
+            # Return message to the client saying that the file does not exist                  
             else:
-                header = 'HTTP/1.1 404 Not Found\n'
-                response = '<html><body>Error 404: File not found</body></html>'.encode(encoding_format)
-                final_response = header.encode(encoding_format)
-                final_response += response + '\n'.encode(encoding_format)
-                client_connection.sendall(final_response)
-
+                send_header(client_connection, '404 Not Found')
+        # Execute if the method is POST
         elif (method in methods_file_in_client):
             success, myfile = search_file(remote_string)
-            if (success == 0):
-                method_file_in_client(method, myfile, client_connection)                    
-            else:
-                header = '500 Internal Server Error\n'
-                final_response = header.encode(encoding_format)
-                client_connection.sendall(final_response)
-
+            method_file_in_client(method, myfile, client_connection)
+        # Stop reading data from the client if the command received is "QUIT"
         elif (method == 'QUIT'):
-            response = '200 BYE\n'
-            client_connection.sendall(response.encode(encoding_format))
+            send_header(client_connection, '200 BYE')
             is_connected = False
-
+        # Message the client if the command is not valid
         else:
-            response = '400 Bad Request\n'
-            client_connection.sendall(response.encode(encoding_format))
-
+            send_header(client_connection, '400 Bad Request')
         client_connection.send('\n'.encode(encoding_format))
-
+    # Close client connection 
     print(f'Now, client {client_address[0]}:{client_address[1]} is disconnected...')
     client_connection.close()
 
@@ -97,12 +94,16 @@ def search_file(remote_string):
     path = remote_string[1]
     myfile = path.split('?')[0]
     myfile = myfile.lstrip('/')
+    # / means index.html
     if(myfile == ''):
         myfile = 'index.html'
+    # True if file exists
     exists = os.path.exists(myfile)
     if (exists):
+        # If the file exists
         return 1, myfile
     else:
+        # if the file does not exist
         return 0, myfile
 
 
@@ -110,63 +111,76 @@ def method_file_in_server(method, myfile, client_connection):
     header = ''
     if (method == 'GET'):
         try:
-            header = '200 OK\n'
-            final_response = header.encode(encoding_format) + '\n'.encode(encoding_format)
-            client_connection.sendall(final_response)
+            send_header(client_connection, '200 OK')
+            client_connection.sendall('\n'.encode(encoding_format))
+            # Open and read file
             f = open(myfile, 'rb')
             l = f.read(1024)
             while (l):
+                # Send file bytes to the client
                 client_connection.send(l)
                 l = f.read(1024)
+            # Close file
             f.close()
         except:
-            header = '500 Internal Server Error\n'
-            final_response = header.encode(encoding_format) + '\n'.encode(encoding_format)
-            client_connection.sendall(final_response)
-
+            send_header(client_connection, '500 Internal Server Error')
     elif (method == 'HEAD'):
         pass
     elif (method == 'DELETE'):
         try:
+            # Remove the file
             os.remove(myfile)
-            header = '200 OK\n'
+            send_header(client_connection, '200 OK')
         except:
-            header = '500 Internal Server Error\n'
+            send_header(client_connection, '500 Internal Server Error')
 
 
 def method_file_in_client(method, myfile, client_connection):
     header = ''
     if (method == 'POST'):
         try:
-            header = '200 OK\n'
-            myfile = myfile + '.txt'
+            header = '200 OK'
+            # Create new file where the data will be saved
             f = open(myfile, "w")
-            input_str = 'Ingrese END cuando quiera guardar la informacion\n'
+            # Send info to the client
+            input_str = 'Ingrese END cuando quiera guardar la informacion.\n'
             client_connection.send(input_str.encode(encoding_format))
             while True:
+                # Ask a variable name to the client
                 input_str = 'Ingresa la variable a enviar:\n'
                 client_connection.send(input_str.encode(encoding_format))
+                # Read variable name
                 variable = client_connection.recv(recv_buffer_size)
                 variable_encoded = str(variable.decode(encoding_format))
+                # Remove newline characters from the string
                 variable_encoded = re.sub('\n|\r', '', variable_encoded)
+                # Stop savind data if the variable is called END
                 if(variable_encoded == 'END'):
                     break                
                 else:
+                    # Write variable in the file
                     f.write(variable_encoded + ':')
+                    # Ask the value of the variable to the client
                     input_str = 'Ingresa el valor de ' + variable_encoded + ':\n'
                     client_connection.send(input_str.encode(encoding_format))
+                    # Read value
                     variable = client_connection.recv(recv_buffer_size)
                     variable_encoded = str(variable.decode(encoding_format))
+                    # Remove newline characters from the string
                     variable_encoded = re.sub('\n|\r', '', variable_encoded)
+                    # Write newline in the file
                     f.write(variable_encoded + os.linesep)
+            # Close file
             f.close()
         except:
-            header = '500 Internal Server Error\n'
-        final_response = header.encode(encoding_format)
-        client_connection.sendall(final_response)
-            
-    elif (method == 'PUT'):
-        pass
+            header = '500 Internal Server Error'
+        send_header(client_connection, header)
+
+
+def send_header(client_connection, header):
+    final_response = header.encode(encoding_format) + '\n'.encode(encoding_format)
+    client_connection.sendall(final_response)
+
 
 
 if __name__ == "__main__":
