@@ -3,6 +3,7 @@ import socket
 import threading
 import re
 import os
+import datetime
 
 
 # Server address and port
@@ -55,6 +56,7 @@ def handler_client_connection(client_connection, client_address):
         data_recevived = client_connection.recv(recv_buffer_size)
         # Decode the data from bytes to the encodieng format
         remote_string = str(data_recevived.decode(encoding_format))
+        remote_string = remote_string.upper()
         print (f'Data received from: {client_address[0]}:{client_address[1]}')
         print(remote_string)
         # Remove newline characters from the string
@@ -72,18 +74,18 @@ def handler_client_connection(client_connection, client_address):
                 method_file_in_server(method, myfile, client_connection)
             # Return message to the client saying that the file does not exist                  
             else:
-                send_header(client_connection, '404 Not Found')
+                send_header(client_connection, '404 Not Found', 0)
         # Execute if the method is POST
         elif (method in methods_file_in_client):
             success, myfile = search_file(remote_string)
             method_file_in_client(method, myfile, client_connection)
         # Stop reading data from the client if the command received is "QUIT"
         elif (method == 'QUIT'):
-            send_header(client_connection, '200 BYE')
+            send_header(client_connection, '200 BYE', 0)
             is_connected = False
         # Message the client if the command is not valid
         else:
-            send_header(client_connection, '400 Bad Request')
+            send_header(client_connection, '400 Bad Request', 0)
         client_connection.send('\n'.encode(encoding_format))
     # Close client connection 
     print(f'Now, client {client_address[0]}:{client_address[1]} is disconnected...')
@@ -111,7 +113,7 @@ def method_file_in_server(method, myfile, client_connection):
     header = ''
     if (method == 'GET'):
         try:
-            send_header(client_connection, '200 OK')
+            send_header(client_connection, '200 OK', myfile)
             client_connection.sendall('\n'.encode(encoding_format))
             # Open and read file
             f = open(myfile, 'rb')
@@ -123,23 +125,24 @@ def method_file_in_server(method, myfile, client_connection):
             # Close file
             f.close()
         except:
-            send_header(client_connection, '500 Internal Server Error')
+            send_header(client_connection, '500 Internal Server Error', 0)
     elif (method == 'HEAD'):
-        pass
+        try:
+            send_header(client_connection, '200 OK', myfile)
+        except:
+            send_header(client_connection, '500 Internal Server Error', 0)
     elif (method == 'DELETE'):
         try:
             # Remove the file
             os.remove(myfile)
-            send_header(client_connection, '200 OK')
+            send_header(client_connection, '200 OK', myfile)
         except:
-            send_header(client_connection, '500 Internal Server Error')
+            send_header(client_connection, '500 Internal Server Error', 0)
 
 
 def method_file_in_client(method, myfile, client_connection):
-    header = ''
     if (method == 'POST'):
         try:
-            header = '200 OK'
             # Create new file where the data will be saved
             f = open(myfile, "w")
             # Send info to the client
@@ -172,15 +175,45 @@ def method_file_in_client(method, myfile, client_connection):
                     f.write(variable_encoded + os.linesep)
             # Close file
             f.close()
+            send_header(client_connection, '200 OK', 0)
         except:
-            header = '500 Internal Server Error'
-        send_header(client_connection, header)
+            send_header(client_connection, '500 Internal Server Error', 0)
 
 
-def send_header(client_connection, header):
+def send_header(client_connection, header, myfile):
     final_response = header.encode(encoding_format) + '\n'.encode(encoding_format)
+    # Date and ip address and port of he server
+    date = 'Date: ' + str(datetime.datetime.now()) + '\n'
+    server_http = 'Server: ' + str(address) + '/' + str(port) + '\n'
+    final_response += date.encode(encoding_format) + server_http.encode(encoding_format)
+    # File information
+    if (myfile != 0):
+        content_length = 'Content-Length: ' + str(os.stat(myfile).st_size) + '\n'
+        content_type = 'Content-Type: ' + file_type(myfile) + '\n'
+        final_response += content_length.encode(encoding_format) + content_type.encode(encoding_format)
     client_connection.sendall(final_response)
 
+
+# Return MIME type of the file
+def file_type (myfile):
+    if(myfile.endswith('.JPG')):
+        return 'image/jpg'
+    elif(myfile.endswith('.CSS')):
+        return 'text/css'
+    elif(myfile.endswith('.CSV')):
+        return 'text/csv'
+    elif(myfile.endswith('.PDF')):
+        return 'application/pdf'
+    elif(myfile.endswith('.DOC')):
+        return 'application/msword'
+    elif(myfile.endswith('.HTML')):
+        return 'text/html'
+    elif(myfile.endswith('.JSON')):
+        return 'application/json'
+    elif(myfile.endswith('.TXT')):
+        return 'text/plain'
+    else:
+        return 'application/octet-stream'    
 
 
 if __name__ == "__main__":
